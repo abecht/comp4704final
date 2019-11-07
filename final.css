@@ -1,0 +1,11 @@
+canvas {
+    outline: 0.2px solid black;
+}
+
+.canvas-label {
+    float: left;
+    margin: 10px;
+}
+.controls {
+    clear: both;
+}

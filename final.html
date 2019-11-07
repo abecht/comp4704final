@@ -5,26 +5,60 @@
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
     <script src="src.js">
     </script>
+    <link rel="stylesheet" href="final.css">
+    <title>Duality Applet</title>
 </head>
 
 <body>
-    <img src="" height="300" width="300"><br>
-    <img src="" height="300" width="300">
-    <canvas height="300" id="primal-canvas" style="position: absolute; left: 10px; top: 10px"></canvas>
-    <canvas height="300" id="dual-canvas" style="position: absolute; left: 10px"></canvas>
+    <div>
+        <h1>Geometric Duality</h1>
+        <h5>Alex Becht, <em>University of Denver</em></h5>
+        <p>This applet, written in HTML5 and ES6 JavaScript, offers a visualization tool for the principles and key
+            elements of geometric duality, a useful technique for solving computational
+            geometry problems. For a discussion on what this principle exactly entails, follow <a
+                href="https://pdfs.semanticscholar.org/810c/e0c19283481567c6545bf8c0cc8a4dcb8a1f.pdf">this link.</a> The
+            general rule, however, is that a point <em>(a,b)</em> in the primal plane corresponds to the line <em>y=ax&mdash;b</em> in the dual plane, and vice versa.</p>
+    </div>
+    <div class="canvas-label">
+        <h4>Primal</h4>
+        <canvas height="300" width="300" id="primal-canvas"></canvas>
+    </div>
+    <div class="canvas-label">
+        <h4>Dual</h4>
+        <canvas height="300" width="300" id="dual-canvas"></canvas>
+    </div>
     <br>
-    <label>
-        <input type="radio" name="mode" value="insert" checked>
-        Insert
-    </label>
-    <label>
-        <input type="radio" name="mode" value="drag">
-        Move
-    </label>
-    <label>
-        <input type="radio" name="mode" value="delete">
-        Delete
-    </label>
+    <div class="controls">
+        <label>
+            <input type="radio" name="mode" value="insert" checked>
+            Insert
+        </label>
+        <label>
+            <input type="radio" name="mode" value="drag">
+            Move
+        </label>
+        <label>
+            <input type="radio" name="mode" value="delete">
+            Delete
+        </label>
+        <label>
+            <input type="checkbox" name="grid" value="grid">
+            Show grid
+        </label>
+        <button>Clear canvases</button>
+    </div>
+    <div>
+        <h2>Instructions</h2>
+        <h3>Insertion</h3>
+        <p>To add a new point in either the primal or the dual plane, simply click anywhere on the coordinate planes
+            while the insert mode is selected. To
+            create a line segment, click and drag, releasing where you want the endpoint to be. The dual of these
+            operations will be automatically rendered in the other plane. To draw a line,
+            create a corresponding point in the other plane and use the resulting line.</p>
+        <h3>Editing</h3>
+        <p>To move points or segments, select the move mode, then click on a point and move it anywhere in the canvas.
+            To delete points, select the delete mode and then click on any point.</p>
+    </div>
 </body>
 
 </html>
