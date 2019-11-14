@@ -1,3 +1,7 @@
+html {
+    font-family: sans-serif;
+}
+
 canvas {
     outline: 0.2px solid black;
 }
@@ -7,5 +11,73 @@ canvas {
     margin: 10px;
 }
 .controls {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    height: 365px;
+    width: 250px;
+}
+
+a {
+    color: rgb(134, 24, 20)
+}
+a:hover {
+    background-color: rgb(170, 133, 89);
+}
+
+button {
+    border-width: 0;
+    outline: none;
+    border-radius: 2px;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, .6);
+    background-color: #9c0008;
+    color: white;
+    transition: background-color .3s;
+    padding: 12px 24px;
+    text-transform: uppercase;
+    font-family: 'Roboto', 'Helvetica', sans-serif;
+}
+
+button:hover {
+    background-color: #700106;
+}
+
+button:active {
+    color: gray
+}
+
+section {
+    border-radius: 29px;
+    box-shadow: 0px 3px 6px black;
+    padding: 10px;
+    margin-top: 10px;
+}
+
+h1 {
+    color: #9c0008;
+}
+
+h2, h5 {
+    color: rgb(128, 99, 65);
+}
+
+h3, h4 {
+    color: rgb(28, 133, 162)
+}
+
+#instructions {
     clear: both;
+}
+
+h6 {
+    text-transform: uppercase;
+    color: gray;
+    margin: 0;
+    margin-top: 15px;
+}
+
+@media (max-width: 600px) {
+    .controls {
+        width: 97%;
+    }
 }

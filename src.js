@@ -28,6 +28,67 @@ $(document).ready(function () {
         }
     }
 
+    var buttons = $("button");
+    var clearButton = buttons[0];
+    clearButton.onclick = function () { //when the button is clicked, clear everything that has been drawn
+        ctx.clearRect(0, 0, canvasDim, canvasDim);
+        ctx2.clearRect(0, 0, canvasDim, canvasDim);
+        primalPoints = [];
+        dualPoints = [];
+        redraw();
+    }
+    //Code to enable the example data button
+    var showExample = buttons[1];
+    showExample.onclick = function () {
+        //clear the canvas and data stores
+        ctx.clearRect(0, 0, canvasDim, canvasDim);
+        ctx2.clearRect(0, 0, canvasDim, canvasDim);
+        primalPoints = [];
+        dualPoints = [];
+
+        //now, generate 7 random objects
+        for(var i = 0; i < 7; i++) {
+            var point = generateRandomPoint();
+            var isPrimal = true;
+            if(i%3 == 0) { //this tries to distribute objects between dual and primal equally
+                isPrimal = false;
+            }
+            if(i % 4 == 0) { //on iterations 0 and 4, make a segment, one in each plane
+                var secondPoint = generateRandomPoint();
+                secondPoint["color"] = point.color;
+                var index = 0;
+                if(isPrimal) {
+                    index = primalPoints.length;
+                } else {
+                    index = dualPoints.length;
+                }
+                point["other"] = index + 1;
+                secondPoint["other"] = index;
+                if(isPrimal) {
+                    primalPoints.push(point);
+                    primalPoints.push(secondPoint);
+                } else {
+                    dualPoints.push(point);
+                    dualPoints.push(secondPoint);
+                }
+            } else { //any other time, just create the point all the way and save
+                point["other"] = null;
+                if(isPrimal) {
+                    primalPoints.push(point);
+                } else {
+                    dualPoints.push(point);
+                }
+            }
+        }
+        redraw();
+    }
+
+    var check = $(":checkbox")[0];
+    check.onclick = function () { //toggles whether to render with a grid or not
+        showGrid = !showGrid;
+        redraw();
+    }
+
     //MARK: Variable instantiation & app preparation
     var canvasP = document.getElementById("primal-canvas");
     var ctx = canvasP.getContext("2d");
@@ -53,21 +114,24 @@ $(document).ready(function () {
     interacting = false;
     deleting = false;
     dragging = false;
+    possibleLine = false;
+
+    var showGrid = false;
 
     //Draw the axes for the two planes
     drawAxes(ctx);
     drawAxes(ctx2);
 
-    
+
     //MARK: Lifecycle functions
     function mouseDown(e, plane) {
         var isPrimal = (plane === "primal");
-        var { context, points, offsetX, offsetY, secondContext} = getCanvas(isPrimal);
+        var { context, points, offsetX, offsetY, secondContext, otherPoints } = getCanvas(isPrimal);
 
         var drawX = e.clientX - offsetX;
-        var drawY = e.clientY - offsetY;
+        var drawY = e.pageY - offsetY;
         //save the values to the corresponding state variables
-        if(isPrimal) {
+        if (isPrimal) {
             mouseXP = drawX;
             mouseYP = drawY;
             lastXP = mouseXP;
@@ -85,35 +149,43 @@ $(document).ready(function () {
             var deletePoint = false //note when we delete a point
             for (var i = 0; i < points.length; i++) {
                 var point = points[i];
-                if (isClickingPoint(point, drawX, drawY)) { 
+                if (isClickingPoint(point, drawX, drawY)) {
                     //if the place you clicked is within 5 canvas units of the point (half an X or Y), you meant to click the point
                     points.splice(i, 1); //so delete it
                     deletePoint = true;
                     break;
+                } else if (point.other != null) { //segment deletes
+                    var secondPoint = points[point.other];
+                    var { x, y } = convertCoordinates(drawX, drawY);
+                    var { slope, intercept } = generateLine(point.x, point.y, secondPoint.x, secondPoint.y); //find the supporting line of the segment
+                    var linePoint = slope * x + intercept;
+                    if (isClickingPointCart(x, linePoint, x, y)) {
+                        points.splice(point.other, 1);
+                        points.splice(i, 1);
+                        deletePoint = true;
+                    }
                 }
             }
             if (deletePoint) { //and repaint the canvases accordingly if a point was deleted
-                drawAll("primal");
-                drawAll("dual");
+                redraw();
+            } else {
+                for (var i = 0; i < otherPoints.length; i++) {
+                    var line = otherPoints[i];
+                    var { x, y } = convertCoordinates(drawX, drawY);
+                    var linePoint = line.x * x - line.y
+                    if (isClickingPointCart(x, linePoint, x, y)) {
+                        otherPoints.splice(i, 1);
+                        break;
+                    }
+                }
+                redraw();
             }
-            // else {
-            //     debugger
-            //     for (var i = 0; i < dualPoints.length; i++) {
-            //         var line = dualPoints[i];
-            //         var { start, end } = pointToLineIntercepts(line.x, line.y);
-            //         drawLine(start, end, ctx, "#000");
-            //         if (ctx.isPointInPath(drawX, drawY)) {
-            //             dualPoints.splice(i, 1);
-            //             break;
-            //         }
-            //     }
-            //     drawAllPrimal();
-            //     drawAllDual();
-            // }
         } else if (!interacting) { //if we're not in move mode, a click means draw a new point
             var { x, y } = convertCoordinates(drawX, drawY); //translate the canvas coordinates to Cartesian
             var color = getRandomColor(); //pick a random color
-
+            if ((Math.abs(x) >= 13 && Math.abs(x) <= 15) || (Math.abs(y) >= 13 && Math.abs(y) <= 15)) {
+                possibleLine = true;
+            }
             drawPoint(drawX, drawY, context, color); //draw it on the canvas
             points.push({ x: x, y: y, drawX: drawX, drawY: drawY, color: color, other: null }); //and save it
 
@@ -122,16 +194,18 @@ $(document).ready(function () {
         }
         if (isPrimal) { //Important: make sure that the state reflects the changes made in this function
             primalPoints = points;
+            dualPoints = otherPoints;
         } else {
             dualPoints = points;
+            primalPoints = otherPoints;
         }
     }
 
     function mouseUp(e, plane) {
         var isPrimal = (plane === "primal");
-        var { context, points, offsetX, offsetY, secondContext} = getCanvas(isPrimal);
+        var { context, points, offsetX, offsetY, secondContext, otherPoints } = getCanvas(isPrimal);
         var mouseX, mouseY;
-        if(isPrimal) {
+        if (isPrimal) {
             mouseX = mouseXP;
             mouseY = mouseYP;
         } else {
@@ -140,24 +214,57 @@ $(document).ready(function () {
         }
         mouseIsDown = false;
         if (dragging) { //on mouse release, iff the user was determined to be using the drag gesture
-            var startPoint = points[points.length - 1]; //get the last point we added
-            startPoint.other = points.length; //notate it as part of a segment
-            var color = startPoint.color; 
-            //then draw the new point in the same color as the other one
             var { x, y } = convertCoordinates(mouseX, mouseY);
+            var startPoint = points[points.length - 1]; //get the last point we added
+            var color = startPoint.color;
+            if (possibleLine) {
+                if ((Math.abs(x) >= 13 && Math.abs(x) <= 15) || (Math.abs(y) >= 13 && Math.abs(y) <= 15)) {
+                    //user dragged from one edge to the other, this must be an attempt to draw a line
+                    // var slope = (y - startPoint.y) / (x - startPoint.x);
+                    // var intercept = y - (slope * x);
+                    var { slope, intercept } = generateLine(startPoint.x, startPoint.y, x, y);
+                    var { start, end } = pointToLineIntercepts(slope, -intercept);
+                    drawLine(start, end, context, color);
+                    var canvasCoords = toCanvasCoordinates(slope, -intercept);
+                    drawPoint(canvasCoords.x, canvasCoords.y, secondContext, color);
+                    var newPoint = { x: slope, y: -intercept, drawX: canvasCoords.x, drawY: canvasCoords.y, color: color, other: null };
+                    points.pop();
+                    otherPoints.push(newPoint);
+                    if (isPrimal) {
+                        primalPoints = points;
+                        dualPoints = otherPoints;
+                    } else {
+                        dualPoints = points;
+                        primalPoints = otherPoints;
+                    }
+                    redraw();
+                    dragging = false;
+                    return;
+                }
+            }
+
+            //If this wasn't a line, for whatever reason, just make a segment
+
+            startPoint.other = points.length; //notate it as part of a segment
+            //then draw the new point in the same color as the other one
             drawPoint(mouseX, mouseY, context, color);
             var endPoint = { x: x, y: y, drawX: mouseX, drawY: mouseY, color: color, other: points.length - 1 };
             points.push(endPoint);
+
             //draw the point dual
             var { start, end } = pointToLineIntercepts(x, y);
             drawLine(start, end, secondContext, color);
+
             //draw the segment between the points
             drawSegment(startPoint, endPoint, context, color);
-            //and the dual stabbing region
+
+            //and lastly, the dual stabbing region
             drawRegion(startPoint, endPoint, secondContext, color);
+
+
             dragging = false; //mark the end of this drag operation
         }
-        if(isPrimal) {
+        if (isPrimal) { //save our changes
             primalPoints = points;
         } else {
             dualPoints = points;
@@ -166,16 +273,16 @@ $(document).ready(function () {
 
     function mouseMove(e, plane) {
         var isPrimal = (plane === "primal");
-        var { context, points, offsetX, offsetY, secondContext} = getCanvas(isPrimal);
+        var { context, points, offsetX, offsetY, secondContext } = getCanvas(isPrimal);
 
         if (!mouseIsDown) { //if we're just moving the mouse, who cares, don't run this function
             return;
         }
         var mouseX = parseInt(e.clientX - offsetX);
-        var mouseY = parseInt(e.clientY - offsetY);
+        var mouseY = parseInt(e.pageY - offsetY);
 
         var lastX, lastY;
-        if(isPrimal) {
+        if (isPrimal) {
             mouseXP = mouseX;
             mouseYP = mouseY;
             lastX = lastXP;
@@ -198,21 +305,20 @@ $(document).ready(function () {
                     point.y -= yDiff / 10; //making sure that the Cartesian update for y is the opposite sign to that of canvas' system
                 }
             }
-            if(isPrimal) { //save the data for future moves
+            if (isPrimal) { //save the data for future moves
                 lastXP = mouseX;
                 lastYP = mouseY;
             } else {
                 lastXD = mouseX;
                 lastYD = mouseY;
             }
-            if(isPrimal) {
+            if (isPrimal) {
                 primalPoints = points;
             } else {
                 dualPoints = points;
             }
             //and repaint the canvas
-            drawAll("primal");
-            drawAll("dual");
+            redraw();
         } else {
             dragging = true; //if we're not in move mode, we're in segment drag mode
         }
@@ -225,6 +331,11 @@ $(document).ready(function () {
 
     function isClickingPoint(point, drawX, drawY) { //checks if a click is within half a x and y-unit for flexible interaction
         return (Math.abs(point.drawX - drawX) < 5) && (Math.abs(point.drawY - drawY) < 5);
+    }
+
+    function isClickingPointCart(x, y, clickX, clickY) {
+        var state = (Math.abs(x - clickX) < 5) && (Math.abs(y - clickY) < 5);
+        return state;
     }
 
     function getCanvas(isPrimal) { //helper to get the corresponding objects for a primal or dual operation
@@ -244,7 +355,7 @@ $(document).ready(function () {
         offsetX = canvas.offsetLeft;
         offsetY = canvas.offsetTop;
 
-        return {canvas: canvas, context: context, points: points, offsetX: offsetX, offsetY: offsetY, secondContext: secondContext, otherPoints: otherPoints};
+        return { canvas: canvas, context: context, points: points, offsetX: offsetX, offsetY: offsetY, secondContext: secondContext, otherPoints: otherPoints };
     }
 
     function convertCoordinates(x, y) { //converts canvas coordinates to Cartesian coordinates
@@ -260,7 +371,7 @@ $(document).ready(function () {
         }
     }
 
-    function pointToLineIntercepts(x, y) { 
+    function pointToLineIntercepts(x, y) {
         //calculates the start and end points for canvas to draw a line from a point, using the duality rule that x-coordinate corresponds
         // to slope and y-coordinate corresponds to the negative of the y-intercept for the line
         var slope = x;
@@ -273,13 +384,55 @@ $(document).ready(function () {
         }
     }
 
+    function generateLine(x1, y1, x2, y2) {
+        //generates the line between 2 points
+        var slope = (y2 - y1) / (x2 - x1);
+        var intercept = y1 - (slope * x1);
+        return {
+            slope: slope,
+            intercept: intercept
+        };
+    }
+
+    function generateRandomPoint() { //generates a random point
+        var coords = [];
+        for(var j = 0; j < 2; j++) { //create a random x and y coordinate
+            //randomly pick if it's positive or negative
+            var signNum = Math.random();
+            var sign = 1;
+            if(signNum > 0.5) {
+                sign = -1;
+            }
+
+            coords.push(Math.random() * 10 * sign);
+        }
+        //calculate the drawing coordinates and pick a color before we return
+        var canvasCoords = toCanvasCoordinates(coords[0], coords[1]);
+        var color = getRandomColor();
+
+        return {
+            x: coords[0],
+            y: coords[1],
+            drawX: canvasCoords.x,
+            drawY: canvasCoords.y,
+            color: color
+        }
+    }
+
     //MARK: Generic drawing Functions
+    function redraw() { //any time we are asked to redraw, you have two planes to repaint
+        drawAll("primal");
+        drawAll("dual");
+    }
+
     function drawAll(plane) {
         var isPrimal = (plane === "primal");
-        var {context, points, otherPoints} = getCanvas(isPrimal);
+        var { context, points, otherPoints } = getCanvas(isPrimal);
         context.clearRect(0, 0, canvasDim, canvasDim); //wipe the canvas
         drawAxes(context); //draw the axes
-        // drawGrid(context);
+        if (showGrid) {
+            drawGrid(context);
+        }
         for (var i = 0; i < points.length; i++) { //draw all the points/segments
             var p = points[i];
             drawPoint(p.drawX, p.drawY, context, p.color);
@@ -313,6 +466,7 @@ $(document).ready(function () {
         context.stroke();
         context.closePath()
     }
+
     function drawGrid(context) {
         context.beginPath();
         for (var i = 0; i < canvasDim; i += 10) { // 100 represents the width in pixels between each line of the grid
@@ -328,13 +482,7 @@ $(document).ready(function () {
         context.stroke();
         context.restore();
         context.closePath();
-        };
-
-    // Call the function
-    // drawGrid(ctx);
-    // drawGrid(ctx2);
-    // ctx.clearRect(0,0, canvasDim, canvasDim);
-    // drawAllPrimal();
+    };
 
     function drawPoint(x, y, context, color) {
         context.save();
