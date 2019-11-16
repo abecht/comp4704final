@@ -46,6 +46,18 @@ button:active {
     color: gray
 }
 
+button:disabled {
+    background-color: #3b0003;
+    color: gray;
+}
+button:disabled:hover {
+    background-color: #3b0003;
+}
+
+.states {
+    width: 49%;
+}
+
 section {
     border-radius: 29px;
     box-shadow: 0px 3px 6px black;
@@ -80,4 +92,18 @@ h6 {
     .controls {
         width: 97%;
     }
+}
+
+footer,
+h5 {
+    margin: 0px
+}
+
+footer {
+    clear: both;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    margin-top: 10px;
 }

@@ -1,5 +1,10 @@
 $(document).ready(function () {
     //MARK: Event registration
+    $("a[href='top']")[0].onclick = function() {
+        window.scrollTo({top: 0, behavior: 'smooth'});
+        return false;
+    }
+
     $("#primal-canvas").mousedown(function (e) {
         mouseDown(e, "primal");
     });
@@ -31,15 +36,20 @@ $(document).ready(function () {
     var buttons = $("button");
     var clearButton = buttons[0];
     clearButton.onclick = function () { //when the button is clicked, clear everything that has been drawn
+        clearState();
+        pushUndo();
         ctx.clearRect(0, 0, canvasDim, canvasDim);
         ctx2.clearRect(0, 0, canvasDim, canvasDim);
         primalPoints = [];
         dualPoints = [];
+        updateState();
         redraw();
     }
     //Code to enable the example data button
     var showExample = buttons[1];
     showExample.onclick = function () {
+        clearState();
+        pushUndo();
         //clear the canvas and data stores
         ctx.clearRect(0, 0, canvasDim, canvasDim);
         ctx2.clearRect(0, 0, canvasDim, canvasDim);
@@ -47,24 +57,24 @@ $(document).ready(function () {
         dualPoints = [];
 
         //now, generate 7 random objects
-        for(var i = 0; i < 7; i++) {
+        for (var i = 0; i < 7; i++) {
             var point = generateRandomPoint();
             var isPrimal = true;
-            if(i%3 == 0) { //this tries to distribute objects between dual and primal equally
+            if (i % 3 == 0) { //this tries to distribute objects between dual and primal equally
                 isPrimal = false;
             }
-            if(i % 4 == 0) { //on iterations 0 and 4, make a segment, one in each plane
+            if (i % 4 == 0) { //on iterations 0 and 4, make a segment, one in each plane
                 var secondPoint = generateRandomPoint();
                 secondPoint["color"] = point.color;
                 var index = 0;
-                if(isPrimal) {
+                if (isPrimal) {
                     index = primalPoints.length;
                 } else {
                     index = dualPoints.length;
                 }
                 point["other"] = index + 1;
                 secondPoint["other"] = index;
-                if(isPrimal) {
+                if (isPrimal) {
                     primalPoints.push(point);
                     primalPoints.push(secondPoint);
                 } else {
@@ -73,14 +83,24 @@ $(document).ready(function () {
                 }
             } else { //any other time, just create the point all the way and save
                 point["other"] = null;
-                if(isPrimal) {
+                if (isPrimal) {
                     primalPoints.push(point);
                 } else {
                     dualPoints.push(point);
                 }
             }
         }
+        updateState();
         redraw();
+    }
+
+    var undoButton = buttons[2];
+    undoButton.onclick = function () {
+        undoOp();
+    }
+    var redoButton = buttons[3];
+    redoButton.onclick = function () {
+        redoOp();
     }
 
     var check = $(":checkbox")[0];
@@ -88,6 +108,29 @@ $(document).ready(function () {
         showGrid = !showGrid;
         redraw();
     }
+
+    var undoCheck = $(":checkbox")[1];
+    undoCheck.onclick = function () { //toggles whether to use undo/redo
+        undo = !undo;
+        if(!undo) { //wipe the state variable to release memory if undo is disabled
+            clearState();
+        }
+    }
+
+    $(document).keydown(function (ev) {
+        var e = ev.originalEvent; //unwrap jQuery event
+        if (undo) {
+            if (e.key == 'z' || e.key == 'Z') {
+                if (e.ctrlKey) {
+                    if (e.shiftKey) { //Ctrl shift z is redo
+                        redoOp();
+                    } else { //otherwise, undo
+                        undoOp();
+                    }
+                }
+            }
+        }
+    })
 
     //MARK: Variable instantiation & app preparation
     var canvasP = document.getElementById("primal-canvas");
@@ -117,6 +160,16 @@ $(document).ready(function () {
     possibleLine = false;
 
     var showGrid = false;
+    var undo = true;
+
+    var state = {
+        past: [],
+        present: {
+            primal: [],
+            dual: []
+        },
+        future: []
+    }
 
     //Draw the axes for the two planes
     drawAxes(ctx);
@@ -145,6 +198,8 @@ $(document).ready(function () {
 
 
         mouseIsDown = true;
+        pushUndo();
+
         if (deleting) {
             var deletePoint = false //note when we delete a point
             for (var i = 0; i < points.length; i++) {
@@ -199,6 +254,7 @@ $(document).ready(function () {
             dualPoints = points;
             primalPoints = otherPoints;
         }
+        updateState();
     }
 
     function mouseUp(e, plane) {
@@ -214,6 +270,8 @@ $(document).ready(function () {
         }
         mouseIsDown = false;
         if (dragging) { //on mouse release, iff the user was determined to be using the drag gesture
+            pushUndo();
+
             var { x, y } = convertCoordinates(mouseX, mouseY);
             var startPoint = points[points.length - 1]; //get the last point we added
             var color = startPoint.color;
@@ -263,11 +321,12 @@ $(document).ready(function () {
 
 
             dragging = false; //mark the end of this drag operation
-        }
-        if (isPrimal) { //save our changes
-            primalPoints = points;
-        } else {
-            dualPoints = points;
+            if (isPrimal) { //save our changes
+                primalPoints = points;
+            } else {
+                dualPoints = points;
+            }
+            updateState();
         }
     }
 
@@ -396,11 +455,11 @@ $(document).ready(function () {
 
     function generateRandomPoint() { //generates a random point
         var coords = [];
-        for(var j = 0; j < 2; j++) { //create a random x and y coordinate
+        for (var j = 0; j < 2; j++) { //create a random x and y coordinate
             //randomly pick if it's positive or negative
             var signNum = Math.random();
             var sign = 1;
-            if(signNum > 0.5) {
+            if (signNum > 0.5) {
                 sign = -1;
             }
 
@@ -478,7 +537,7 @@ $(document).ready(function () {
             context.lineTo(canvasDim, i);
         }
         context.save();
-        context.strokeStyle = 'hsla(200, 0%, 20%, 0.4)';
+        context.strokeStyle = 'hsla(200, 0%, 20%, 0.2)';
         context.stroke();
         context.restore();
         context.closePath();
@@ -543,5 +602,65 @@ $(document).ready(function () {
         context.lineTo(canvasDim, toCanvasCoordinates(15, interceptsA.end).y);
         context.fill();
         context.restore();
+    }
+
+    //MARK: Undo/redo functions
+    function pushUndo() {
+        if (undo) {
+            state.past.push({
+                primal: primalPoints.slice(),
+                dual: dualPoints.slice()
+            })
+            state.future = [];
+            undoButton.disabled = false;
+            redoButton.disabled = true;
+        }
+    }
+    function updateState() {
+        if (undo) {
+            state.present = {
+                primal: primalPoints.slice(),
+                dual: dualPoints.slice()
+            }
+        }
+    }
+
+    function undoOp() {
+        if (state.past.length != 0) {
+            state.future.push(state.present);
+            var last = state.past.pop();
+            console.log(last);
+            state.present = last;
+            primalPoints = state.present.primal;
+            dualPoints = state.present.dual;
+            redraw();
+            redoButton.disabled = false;
+            if(state.past.length == 0) {
+                undoButton.disabled = true;
+            }
+        }
+    }
+
+    function redoOp() {
+        state.past.push(state.present);
+        state.present = state.future.pop();
+        primalPoints = state.present.primal;
+        dualPoints = state.present.dual;
+        undoButton.disabled = false;
+        if(state.future.length == 0) {
+            redoButton.disabled = true;
+        }
+        redraw();
+    }
+
+    function clearState() {
+        state = {
+            past: [],
+            present: {
+                primal: [],
+                dual: []
+            },
+            future: []
+        }
     }
 })

@@ -48,23 +48,38 @@
             <input type="checkbox" name="grid" value="grid">
             Show grid
         </label>
+        <label>
+            <input type="checkbox" name="undo" value="undo" checked>
+            Enable undo/redo (uses more memory)
+        </label>
         <h6>Controls</h6>
         <button>Clear canvases</button>
         <button>Show example data</button>
+        <div>
+            <button disabled class="states">Undo</button>
+            <button disabled class="states">Redo</button>
+        </div>
     </section>
     <section id="instructions">
         <h2>Instructions</h2>
         <h3>Insertion</h3>
         <p>To add a new point in either the primal or the dual plane, simply click anywhere on the coordinate planes
             while the insert mode is selected. To
-            create a line segment, click and drag, releasing where you want the endpoint to be. The dual of these
-            operations will be automatically rendered in the other plane. To draw a line,
+            create a line segment, click and drag, releasing where you want the endpoint to be. To draw a line,
             create a corresponding point in the other plane and use the resulting line, or click and drag from any one
-            edge of the plane to the other (for instance, top right corner to bottom left corner).</p>
+            edge of the plane to the other (for instance, top right corner to bottom left corner). The dual of these
+            operations will be automatically rendered in the other plane. If the undo/redo mode
+            is enabled, you can click the undo or redo buttons to change the state of the application, as well as by pressing
+            Ctrl+Z to undo and Ctrl+Shift+Z to redo.</p>
         <h3>Editing</h3>
         <p>To move points or segments, select the move mode, then click on a point and move it anywhere in the canvas.
             To delete points, select the delete mode and then click on any point, line, or segment.</p>
     </section>
+    <footer>
+        <h5>&copy; 2019 <a href="https://alexbecht.com">Alex Becht</a></h6>
+            <h5>Built in Denver</h5>
+            <h5><a href='top'>Go to top</a></h5>
+    </footer>
 </body>
 
 </html>
